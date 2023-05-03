@@ -1,17 +1,18 @@
 import hashlib
 import os
+import time
+import warnings
 
-import numpy as np
 import torch
 import torch.distributed as dist
-import warnings
 
 from config import Config
 from dgk_single_thread import NetworkSimulator
 from fhe import FheBuilder, FheEncTensor, encrypt_zeros
 from timer_utils import NamedTimerInstance
-from torch_utils import compare_expected_actual, warming_up_cuda, torch_from_buffer, marshal_funcs, get_prod, \
-    generate_random_mask, get_num_byte
+from torch_utils import compare_expected_actual, torch_from_buffer, marshal_funcs, generate_random_mask, get_num_byte
+
+DELAY = 0.05
 
 
 def str_hash(s):
@@ -24,8 +25,10 @@ def init_communicate(rank, master_address="127.0.0.1", master_port="12595", back
     print(f"rank: {rank}, master_address: {master_address}, master_port: {master_port}")
     dist.init_process_group(backend, rank=rank, world_size=Config.world_size)
 
+
 def end_communicate():
     dist.destroy_process_group()
+
 
 def torch_sync():
     dist.barrier()
@@ -33,6 +36,7 @@ def torch_sync():
 
 class NamedBase(object):
     class_name = "NameBase"
+
     def __init__(self, name):
         self.name = name
 
@@ -65,7 +69,7 @@ class TrafficRecord(object):
 
     instance = None
 
-    def __new__(cls): # __new__ always a classmethod
+    def __new__(cls):  # __new__ always a classmethod
         if not TrafficRecord.instance:
             TrafficRecord.instance = TrafficRecord.__TrafficRecord()
         return TrafficRecord.instance
@@ -92,6 +96,7 @@ class CommBase(object):
     def send_torch(self, torch_tensor: torch.Tensor, name: str):
         tag = self.get_dist_tag(name)
         send_tensor = torch_tensor.cpu()
+        time.sleep(DELAY)
         self.all_wait[tag] = dist.isend(tensor=send_tensor, dst=self.dst, tag=tag)
 
         self.traffic_record.send_byte(get_num_byte(send_tensor))
@@ -99,8 +104,8 @@ class CommBase(object):
     def recv_torch(self, torch_tensor: torch.Tensor, name: str):
         tag = self.get_dist_tag(name)
         self.all_tensors[tag] = torch_tensor
+        time.sleep(DELAY)
         self.all_wait[tag] = dist.irecv(tensor=self.all_tensors[tag], src=self.dst, tag=tag)
-
 
     def wait(self, name: str):
         tag = self.get_dist_tag(name)
@@ -122,7 +127,7 @@ class CommFheBuilder(object):
         self.recv_list = dict()
 
     def sub_name(self, name: str, i: int):
-        return name+'_'+str(i)
+        return name + '_' + str(i)
 
     def send_public_key(self):
         return self.comm_base.send_torch(self.fhe_builder.get_public_key_buffer(), "public_key")
@@ -234,6 +239,7 @@ class PhaseProtocolClient(PhaseProtocolCommon):
 
 class BlobTorch(object):
     recv_tensor = None
+
     def __init__(self, shape, transfer_dtype, comm: CommBase, name: str, comp_dtype=None, dst_device="cuda:0"):
         if isinstance(shape, torch.Size):
             self.shape = shape
@@ -251,7 +257,7 @@ class BlobTorch(object):
         self.comp_dtype = transfer_dtype if comp_dtype is None else comp_dtype
 
     def send(self, send_tensor: torch.Tensor):
-        assert(send_tensor.shape == self.shape)
+        assert (send_tensor.shape == self.shape)
         self.comm.send_torch(send_tensor.type(self.transfer_dtype), self.name)
 
     def prepare_recv(self):
@@ -265,6 +271,7 @@ class BlobTorch(object):
 
 class BlobFheRawCts(object):
     recv_tensor = None
+
     def __init__(self, num_batch: int, comm: CommFheBuilder, name: str):
         self.name = name
         self.comm = comm
@@ -275,7 +282,7 @@ class BlobFheRawCts(object):
         self.degree = self.fhe_builder.degree
 
     def send(self, cts):
-        assert(len(cts) == self.num_batch)
+        assert (len(cts) == self.num_batch)
         self.comm.send_raw_cts(cts, self.num_batch, self.name)
 
     def prepare_recv(self):
@@ -289,6 +296,7 @@ class BlobFheRawCts(object):
 
 class BlobFheEnc(object):
     recv_tensor = None
+
     def __init__(self, num_elem: int, comm: CommFheBuilder, name: str, ee_mult_time=0):
         self.name = name
         self.comm = comm
@@ -297,12 +305,12 @@ class BlobFheEnc(object):
         self.ee_mult_time = ee_mult_time
 
     def send(self, enc: FheEncTensor):
-        assert(enc.num_elem == self.num_elem)
+        assert (enc.num_elem == self.num_elem)
         self.comm.send_enc(enc, self.name)
 
     def send_from_torch(self, torch_tensor):
-        assert(len(torch_tensor.shape) == 1)
-        assert(torch_tensor.shape[0] == self.num_elem)
+        assert (len(torch_tensor.shape) == 1)
+        assert (torch_tensor.shape[0] == self.num_elem)
         enc = self.fhe_builder.build_enc_from_torch(torch_tensor)
         self.send(enc)
 
@@ -330,8 +338,9 @@ class BlobFheEnc(object):
 
 class BlobFheEnc2D(object):
     recv_tensor = None
+
     def __init__(self, shape, comm: CommFheBuilder, name: str):
-        assert(len(shape) == 2)
+        assert (len(shape) == 2)
         self.name = name
         self.comm = comm
         self.shape = shape
@@ -343,14 +352,14 @@ class BlobFheEnc2D(object):
         return self.name + '_' + str(i)
 
     def send(self, list_enc: list):
-        assert(isinstance(list_enc[0], FheEncTensor))
-        assert(len(list_enc) == self.num_enc)
-        assert(list_enc[0].num_elem == self.num_elem)
+        assert (isinstance(list_enc[0], FheEncTensor))
+        assert (len(list_enc) == self.num_enc)
+        assert (list_enc[0].num_elem == self.num_elem)
         for i in range(len(list_enc)):
             self.comm.send_enc(list_enc[i], self.sub_name(i))
 
     def send_from_torch(self, torch_tensor):
-        assert(torch_tensor.shape == torch.Size(self.shape))
+        assert (torch_tensor.shape == torch.Size(self.shape))
         enc = [self.fhe_builder.build_enc_from_torch(torch_tensor[i]) for i in range(len(torch_tensor))]
         self.send(enc)
 
@@ -368,6 +377,7 @@ class BlobFheEnc2D(object):
     def get_recv_decrypt(self):
         enc = self.get_recv()
         return self.fhe_builder.decrypt_to_torch(enc)
+
 
 def test_comm_fhe_builder():
     num_elem = 2 ** 17
@@ -534,6 +544,7 @@ def test_comm_base():
         dist.destroy_process_group()
 
     marshal_funcs([comm_base_server, comm_base_client])
+
 
 if __name__ == "__main__":
     # test_comm_base()
