@@ -4,7 +4,7 @@ from time import time
 
 import numpy as np
 import torch
-from numpy.random.generator import default_rng
+from numpy.random._generator import default_rng
 
 from torch.multiprocessing import Process
 
@@ -227,7 +227,7 @@ def argparser_distributed():
                         help="The Master Port for communication")
     parser.add_argument("--test", "-t",
                         dest="TestToRun",
-                        default="all",
+                        default="vgg16_cifar10",
                         help="The Test to run")
 
     args = parser.parse_args()
