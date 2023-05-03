@@ -588,9 +588,9 @@ class Avgpool2x2SecureLayer(SecureLayerBase):
         self.prot.online(self.get_input_share().reshape(-1))
 
         if self.is_server():
-            self.output_share = self.prot.max_s
+            self.output_share = self.prot.out_s
         elif self.is_client():
-            self.output_share = self.prot.max_c
+            self.output_share = self.prot.out_c
 
         device = self.next_input_device
         dtype = self.next_input_dtype

@@ -17,7 +17,8 @@ from torch_utils import gen_unirand_int_grain, pmod, marshal_funcs, compare_expe
 
 class Avgpool2x2Common(DgkCommBase, PhaseProtocolCommon):
     out_s: torch.Tensor
-    max_c: torch.Tensor
+    out_c: torch.Tensor
+
     def __init__(self, num_elem, q_23, q_16, work_bit, data_bit, img_hw,
                  fhe_builder_16: FheBuilder, fhe_builder_23: FheBuilder, name: str, rank):
         super(Avgpool2x2Common, self).__init__(num_elem, q_23, q_16, work_bit, data_bit,
@@ -38,8 +39,10 @@ class Avgpool2x2Common(DgkCommBase, PhaseProtocolCommon):
     def pooling(self, img):
         return self.pool(img.reshape([-1, self.img_hw, self.img_hw])).reshape(-1)
 
+
 class Avgpool2x2Server(Avgpool2x2Common):
     out_s: torch.Tensor
+
     def __init__(self, num_elem, q_23, q_16, work_bit, data_bit, img_hw,
                  fhe_builder_16: FheBuilder, fhe_builder_23: FheBuilder, name: str):
         super(Avgpool2x2Server, self).__init__(num_elem, q_23, q_16, work_bit, data_bit, img_hw,
@@ -54,6 +57,8 @@ class Avgpool2x2Server(Avgpool2x2Common):
 
 
 class Avgpool2x2Client(Avgpool2x2Common):
+    out_c: torch.Tensor
+
     def __init__(self, num_elem, q_23, q_16, work_bit, data_bit, img_hw,
                  fhe_builder_16: FheBuilder, fhe_builder_23: FheBuilder, name: str):
         super(Avgpool2x2Client, self).__init__(num_elem, q_23, q_16, work_bit, data_bit, img_hw,
@@ -67,7 +72,7 @@ class Avgpool2x2Client(Avgpool2x2Common):
         self.out_c = self.pooling(img_c)
 
 
-def test_avgpool2x2_dgk(input_sid, master_address, master_port, num_elem=2**17):
+def test_avgpool2x2_dgk(input_sid, master_address, master_port, num_elem=2 ** 17):
     test_name = "Avgpool2x2"
     print(f"\nTest for {test_name}: Start")
     data_bit = 20
@@ -94,13 +99,14 @@ def test_avgpool2x2_dgk(input_sid, master_address, master_port, num_elem=2**17):
         expected = pool(img.double().reshape([-1, img_hw, img_hw])).reshape(-1) * 4
         expected = pmod(expected, q_23)
         actual = pmod(max_s + max_c, q_23)
-        compare_expected_actual(expected, actual, name=test_name+"_online", get_relative=True)
+        compare_expected_actual(expected, actual, name=test_name + "_online", get_relative=True)
 
     def test_server():
         init_communicate(Config.server_rank, master_address=master_address, master_port=master_port)
         warming_up_cuda()
         traffic_record = TrafficRecord()
-        prot = Avgpool2x2Server(num_elem, q_23, q_16, work_bit, data_bit, img_hw, fhe_builder_16, fhe_builder_23, "avgpool")
+        prot = Avgpool2x2Server(num_elem, q_23, q_16, work_bit, data_bit, img_hw, fhe_builder_16, fhe_builder_23,
+                                "avgpool")
 
         with NamedTimerInstance("Server Offline"):
             prot.offline()
@@ -112,7 +118,7 @@ def test_avgpool2x2_dgk(input_sid, master_address, master_port, num_elem=2**17):
             torch_sync()
         traffic_record.reset("server-online")
 
-        blob_out_c = BlobTorch(num_elem//4, torch.float, prot.comm_base, "recon_res_c")
+        blob_out_c = BlobTorch(num_elem // 4, torch.float, prot.comm_base, "recon_res_c")
         blob_out_c.prepare_recv()
         torch_sync()
         out_c = blob_out_c.get_recv()
@@ -124,7 +130,8 @@ def test_avgpool2x2_dgk(input_sid, master_address, master_port, num_elem=2**17):
         init_communicate(Config.client_rank, master_address=master_address, master_port=master_port)
         warming_up_cuda()
         traffic_record = TrafficRecord()
-        prot = Avgpool2x2Client(num_elem, q_23, q_16, work_bit, data_bit, img_hw, fhe_builder_16, fhe_builder_23, "avgpool")
+        prot = Avgpool2x2Client(num_elem, q_23, q_16, work_bit, data_bit, img_hw, fhe_builder_16, fhe_builder_23,
+                                "avgpool")
 
         with NamedTimerInstance("Client Offline"):
             prot.offline()
@@ -136,7 +143,7 @@ def test_avgpool2x2_dgk(input_sid, master_address, master_port, num_elem=2**17):
             torch_sync()
         traffic_record.reset("client-online")
 
-        blob_out_c = BlobTorch(num_elem//4, torch.float, prot.comm_base, "recon_res_c")
+        blob_out_c = BlobTorch(num_elem // 4, torch.float, prot.comm_base, "recon_res_c")
         torch_sync()
         blob_out_c.send(prot.out_c)
         end_communicate()
