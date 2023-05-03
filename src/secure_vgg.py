@@ -96,13 +96,15 @@ def generate_secure_vgg16(num_class):
     conv2 = Conv2dSecureLayer(64, 64, 3, "conv2", padding=1)
     relu2 = ReluSecureLayer("relu2")
     trun2 = TruncSecureLayer("trun2")
-    pool1 = Maxpool2x2SecureLayer("pool1")
+    # pool1 = Maxpool2x2SecureLayer("pool1")
+    pool1 = Avgpool2x2SecureLayer("pool1")
 
     conv3 = Conv2dSecureLayer(64, 128, 3, "conv3", padding=1)
     relu3 = ReluSecureLayer("relu3")
     trun3 = TruncSecureLayer("trun3")
     conv4 = Conv2dSecureLayer(128, 128, 3, "conv4", padding=1)
-    pool2 = Maxpool2x2SecureLayer("pool2")
+    # pool2 = Maxpool2x2SecureLayer("pool2")
+    pool2 = Avgpool2x2SecureLayer("pool2")
     relu4 = ReluSecureLayer("relu4")
     trun4 = TruncSecureLayer("trun4")
 
@@ -115,7 +117,8 @@ def generate_secure_vgg16(num_class):
     conv7 = Conv2dSecureLayer(256, 256, 3, "conv7", padding=1)    
     relu7 = ReluSecureLayer("relu7")
     trun7 = TruncSecureLayer("trun7")
-    pool3 = Maxpool2x2SecureLayer("pool3")
+    pool3 = Avgpool2x2SecureLayer("pool3")
+    # pool3 = Maxpool2x2SecureLayer("pool3")
 
     conv8 = Conv2dSecureLayer(256, 512, 3, "conv8", padding=1)    
     relu8 = ReluSecureLayer("relu8")
@@ -124,7 +127,8 @@ def generate_secure_vgg16(num_class):
     relu9 = ReluSecureLayer("relu9")
     trun9 = TruncSecureLayer("trun9")
     conv10 = Conv2dSecureLayer(512, 512, 3, "conv10", padding=1)
-    pool4 = Maxpool2x2SecureLayer("pool4")
+    # pool4 = Maxpool2x2SecureLayer("pool4")
+    pool4 = Avgpool2x2SecureLayer("pool4")
     relu10 = ReluSecureLayer("relu10")
     trun10 = TruncSecureLayer("trun10")
 
@@ -137,7 +141,8 @@ def generate_secure_vgg16(num_class):
     conv13 = Conv2dSecureLayer(512, 512, 3, "conv13", padding=1)
     relu13 = ReluSecureLayer("relu13")
     trun13 = TruncSecureLayer("trun13")
-    pool5 = Maxpool2x2SecureLayer("pool5")
+    # pool5 = Maxpool2x2SecureLayer("pool5")
+    pool5 = Avgpool2x2SecureLayer("pool5")
 
     flatten = FlattenSecureLayer("flatten")
     fc1 = FcSecureLayer(512, "fc1")
@@ -477,7 +482,7 @@ if __name__ == "__main__":
 
     print("====== New Tests ======")
 
-    num_repeat = 10
+    num_repeat = 3
 
     if test_to_run in ["all", "vgg"]:
         model_name_base = "vgg16_cifar10"

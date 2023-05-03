@@ -209,7 +209,8 @@ class ModulusConv2d(nn.Module):
         self.layer_name = layer_name
 
         if is_pool:
-            self.pool = nn.MaxPool2d(2, 2)
+            self.pool = nn.AvgPool2d(2, 2)
+            # self.pool = nn.MaxPool2d(2, 2)
         else:
             self.pool = None
 
