@@ -6,9 +6,12 @@ import sys
 class Logger(object):
     logfile_path = "logfile.log"
 
-    def __init__(self):
+    def __init__(self, logfile=None):
         self.terminal = sys.stdout
-        self.log = open(self.logfile_path, "a")
+        if logfile is None:
+            self.log = open(self.logfile_path, "a")
+        else:
+            self.log = open(logfile, "a")
 
     def reset_logfile(self, path):
         self.logfile_path = path

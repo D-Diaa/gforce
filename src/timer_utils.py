@@ -49,7 +49,7 @@ class NamedTimer(object):
     def __init__(self):
         NamedTimer.__instance = self
         self.timers = {}
-        self.verbose_level = VerboseLevel.EVERY
+        self.verbose_level = VerboseLevel.RUN
 
     @staticmethod
     def start_timer(name, **kwargs):

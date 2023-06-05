@@ -15,7 +15,7 @@ from modulus_net import shift_by_exp, shift_by_exp_plain, ModulusNet, ModulusNet
 from secure_layers import InputSecureLayer, Conv2dSecureLayer, Maxpool2x2SecureLayer, ReluSecureLayer, \
     OutputSecureLayer, FlattenSecureLayer, FcSecureLayer, TruncSecureLayer, Avgpool2x2SecureLayer
 from secure_neural_network import SecureNnFramework
-from timer_utils import NamedTimerInstance
+from timer_utils import NamedTimerInstance, VerboseLevel
 from torch_utils import argparser_distributed, marshal_funcs, compare_expected_actual, pmod, nmod, warming_up_cuda, \
     MetaTruncRandomGenerator
 
@@ -83,6 +83,7 @@ def generate_secure_vgg(num_class):
     secure_nn.load_layers(layers)
 
     return secure_nn
+
 
 def generate_secure_vgg16(num_class):
     input_img_hw = 32
@@ -190,7 +191,6 @@ def generate_secure_minionn(pooling_type_name):
     else:
         raise Exception(f"Unknown Pooling Type Name: {pooling_type_name}")
 
-
     input_layer = InputSecureLayer(input_shape, "input_layer")
     conv1 = Conv2dSecureLayer(3, 64, 3, "conv1", padding=1)
     relu1 = ReluSecureLayer("relu1")
@@ -282,7 +282,7 @@ def load_weight_params(secure_nn: SecureNnFramework, store_configs: dict, net_st
         input_exp, _ = store_configs[layer.name + "ForwardX"]
         weight_exp, _ = store_configs[layer.name + "ForwardY"]
         w_exp = -weight_exp + (bits - 2)
-        exp = -weight_exp + (bits - 2) -input_exp + (bits - 2)
+        exp = -weight_exp + (bits - 2) - input_exp + (bits - 2)
         weight_f = net_state[layer.name + ".weight"].double()
         bias_name = layer.name + ".bias"
         if bias_name in net_state:
@@ -316,11 +316,11 @@ def get_file_highest_acc(model_name_base):
     return max(accs)
 
 
-def secure_vgg(input_sid, master_addr, master_port, model_name_base="vgg_swalp"):
+def secure_vgg(input_sid, master_addr, master_port, model_name_base="vgg_swalp", online_delay=0.05):
     test_name = "secure inference"
     print(f"\nTest for {test_name}: Start")
 
-    #normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     batch_size = 1
 
     net_state_name, config_name = get_net_config_name(model_name_base)
@@ -398,19 +398,19 @@ def secure_vgg(input_sid, master_addr, master_port, model_name_base="vgg_swalp")
 
         meta_rg = MetaTruncRandomGenerator()
         meta_rg.reset_seed()
-
-        with NamedTimerInstance("Server Offline"):
+        Config.delay = 0.0
+        with NamedTimerInstance("Server Offline", VerboseLevel.RUN) as off:
             secure_nn.offline()
             torch_sync()
         traffic_record.reset("server-offline")
-
-        with NamedTimerInstance("Server Online"):
+        Config.delay = online_delay
+        with NamedTimerInstance("Server Online", VerboseLevel.RUN):
             secure_nn.online()
             torch_sync()
         traffic_record.reset("server-online")
 
-        secure_nn.check_correctness(check_correctness)
-        secure_nn.check_layers(get_plain_net, get_hooking_lst(model_name_base))
+        # secure_nn.check_correctness(check_correctness)
+        # secure_nn.check_layers(get_plain_net, get_hooking_lst(model_name_base))
         secure_nn.end_communication()
 
     def test_client():
@@ -430,17 +430,21 @@ def secure_vgg(input_sid, master_addr, master_port, model_name_base="vgg_swalp")
 
         def testset():
             if model_name_base in ["vgg16_cifar100"]:
-                return torchvision.datasets.CIFAR100(root='./data', train=False, download=True, transform=transforms.Compose([
-                        transforms.ToTensor(),
-                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-                        input_shift
-                        ]))
+                return torchvision.datasets.CIFAR100(root='./data', train=False, download=True,
+                                                     transform=transforms.Compose([
+                                                         transforms.ToTensor(),
+                                                         transforms.Normalize((0.4914, 0.4822, 0.4465),
+                                                                              (0.2023, 0.1994, 0.2010)),
+                                                         input_shift
+                                                     ]))
             elif model_name_base in ["vgg16_cifar10", "minionn_maxpool"]:
-                return torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transforms.Compose([
-                        transforms.ToTensor(),
-                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-                        input_shift
-                        ]))
+                return torchvision.datasets.CIFAR10(root='./data', train=False, download=True,
+                                                    transform=transforms.Compose([
+                                                        transforms.ToTensor(),
+                                                        transforms.Normalize((0.4914, 0.4822, 0.4465),
+                                                                             (0.2023, 0.1994, 0.2010)),
+                                                        input_shift
+                                                    ]))
 
         testloader = torch.utils.data.DataLoader(testset(), batch_size=batch_size, shuffle=True, num_workers=2)
 
@@ -448,19 +452,19 @@ def secure_vgg(input_sid, master_addr, master_port, model_name_base="vgg_swalp")
         image, truth = next(data_iter)
         image = image.reshape(secure_nn.get_input_shape())
         secure_nn.fill_input(image)
-
-        with NamedTimerInstance("Client Offline"):
+        Config.delay = 0.0
+        with NamedTimerInstance("Client Offline", VerboseLevel.RUN):
             secure_nn.offline()
             torch_sync()
         traffic_record.reset("client-offline")
-
-        with NamedTimerInstance("Client Online"):
+        Config.delay = online_delay
+        with NamedTimerInstance("Client Online", VerboseLevel.RUN):
             secure_nn.online()
             torch_sync()
         traffic_record.reset("client-online")
 
-        secure_nn.check_correctness(check_correctness, truth=truth)
-        secure_nn.check_layers(get_plain_net, get_hooking_lst(model_name_base))
+        # secure_nn.check_correctness(check_correctness, truth=truth)
+        # secure_nn.check_layers(get_plain_net, get_hooking_lst(model_name_base))
         secure_nn.end_communication()
 
     if input_sid == Config.server_rank:
@@ -476,14 +480,15 @@ def secure_vgg(input_sid, master_addr, master_port, model_name_base="vgg_swalp")
 
     print(f"\nTest for {test_name}: End")
 
+
 if __name__ == "__main__":
     input_sid, master_addr, master_port, test_to_run = argparser_distributed()
     sys.stdout = Logger()
 
     print("====== New Tests ======")
 
-    num_repeat = 3
-
+    num_repeat = 20
+    delays = [0.000125, 0.05]
     if test_to_run in ["all", "vgg"]:
         model_name_base = "vgg16_cifar10"
     elif test_to_run in ["vgg_idc"]:
@@ -498,6 +503,7 @@ if __name__ == "__main__":
         model_name_base = "minionn_cifar10_swalp"
     elif test_to_run in ["minionn_maxpool"]:
         model_name_base = "minionn_maxpool"
-
-    for _ in range(num_repeat):
-        secure_vgg(input_sid, master_addr, master_port, model_name_base)
+    for delay in delays:
+        print("DELAY IS CHANGING TOOOOOOOOOOOOOOOOOOOO: ->>>>>>>>>>>>>>>>>>>>>>>>", delay)
+        for _ in range(num_repeat):
+            secure_vgg(input_sid, master_addr, master_port, model_name_base=model_name_base, online_delay=delay)

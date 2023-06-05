@@ -10,28 +10,32 @@ from torch.multiprocessing import Process
 
 from config import Config
 
-def load_state_dict(dir, model): 
+
+def load_state_dict(dir, model):
     state_dict = torch.load(dir)
     device = torch.device("cuda:0")
     model.load_weight_bias(state_dict)
     model.to(device)
 
-def load_swalp_state_dict(dir, model, withnorm): 
+
+def load_swalp_state_dict(dir, model, withnorm):
     checkpoint = torch.load(dir)
     state_dict = checkpoint['state_dict']
     model_names = list()
     own_state = model.state_dict()
     for name in own_state:
-        if(withnorm or not "norm" in name):
+        if (withnorm or not "norm" in name):
             model_names.append(name)
     for name, swa_name in zip(model_names, state_dict):
         param = state_dict[swa_name]
         own_state[name].copy_(param)
 
+
 def adjust_learning_rate(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return lr
+
 
 def gen_unirand_int_grain(inclusive_start, inclusive_end, size):
     return torch.from_numpy(np.random.uniform(inclusive_start, inclusive_end + 1, size=size)) \
@@ -64,7 +68,7 @@ def pmod(torch_tensor, modulus):
 
 def nmod(tensor: torch.Tensor, modulus: int) -> torch.Tensor:
     tensor = pmod(tensor, modulus)
-    return torch.where(tensor < modulus//2, tensor, tensor - modulus)
+    return torch.where(tensor < modulus // 2, tensor, tensor - modulus)
 
 
 def get_prod(x):
@@ -88,6 +92,7 @@ def compare_expected_actual(expected, actual, show_where_err=False,
             res = torch.tensor(x)
             # return x.detach().numpy()
         return res.type(torch.float).to(Config.device)
+
     expected = purify(expected)
     actual = purify(actual)
 
@@ -110,7 +115,8 @@ def compare_expected_actual(expected, actual, show_where_err=False,
         relative_diff = torch.abs(tmp_expected - tmp_actual) / torch.abs(tmp_expected)
         relative_avg_diff = torch.mean(torch.abs(tmp_actual - tmp_expected)) / torch.mean(torch.abs(tmp_expected))
         Error = namedtuple("Error", ("AvgAbsDiff", "RelAvgDiff", "AvgRelDiff", "StdRelDiff"))
-        res = Error(avg_abs_diff, relative_avg_diff.item(), torch.mean(relative_diff).item(), torch.std(relative_diff).item())
+        res = Error(avg_abs_diff, relative_avg_diff.item(), torch.mean(relative_diff).item(),
+                    torch.std(relative_diff).item())
 
     if name != "":
         print(f"{name}:", res)
@@ -157,7 +163,7 @@ def shuffle_torch(torch_tensor, shuffling_order):
 
 
 def torch_to_list(torch_tensor):
-    assert(len(torch_tensor.size) == 2)
+    assert (len(torch_tensor.size) == 2)
     return [torch_tensor[0] for i in torch_tensor.size[0]]
 
 
@@ -172,16 +178,18 @@ def marshal_funcs(funcs):
 
 class RandomGenerator:
     rg: default_rng
+
     def __init__(self, seed):
         self.rg = default_rng(seed)
 
     def gen_uniform(self, n_elem: int, modulus: int):
-        return torch.from_numpy(self.rg.uniform(0, modulus-1, size=n_elem)).type(torch.int32).type(torch.float)
+        return torch.from_numpy(self.rg.uniform(0, modulus - 1, size=n_elem)).type(torch.int32).type(torch.float)
 
 
 # https://python-3-patterns-idioms-test.readthedocs.io/en/latest/Singleton.html
 class MetaTruncRandomGeneratorBorg:
     _shared_state = {}
+
     def __init__(self):
         self.__dict__ = self._shared_state
 
@@ -189,6 +197,7 @@ class MetaTruncRandomGeneratorBorg:
 class MetaTruncRandomGenerator(MetaTruncRandomGeneratorBorg):
     seed = None
     rgs = {}
+
     def __init__(self):
         MetaTruncRandomGeneratorBorg.__init__(self)
         if self.seed is None:
@@ -227,7 +236,7 @@ def argparser_distributed():
                         help="The Master Port for communication")
     parser.add_argument("--test", "-t",
                         dest="TestToRun",
-                        default="vgg16_cifar10",
+                        # default="vgg16_cifar10",
                         help="The Test to run")
 
     args = parser.parse_args()
@@ -237,5 +246,3 @@ def argparser_distributed():
     test_to_run = args.TestToRun
 
     return input_sid, MasterAddr, MasterPort, test_to_run
-
-
