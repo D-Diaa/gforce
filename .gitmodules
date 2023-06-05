@@ -1,7 +1,3 @@
-[submodule "third_party/seal_python"]
-	path = seal_python
-	url = git@github.com:Lucieno/SEAL-Python.git
-    branch = master
 [submodule "seal_python"]
 	path = seal_python
-	url = https://git.uwaterloo.ca/a2diaa/SEAL-Python
+	url = https://github.com/D-Diaa/SEAL-Python
