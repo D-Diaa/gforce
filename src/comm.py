@@ -12,7 +12,6 @@ from fhe import FheBuilder, FheEncTensor, encrypt_zeros
 from timer_utils import NamedTimerInstance
 from torch_utils import compare_expected_actual, torch_from_buffer, marshal_funcs, generate_random_mask, get_num_byte
 
-DELAY = 0.05
 
 
 def str_hash(s):
@@ -96,7 +95,7 @@ class CommBase(object):
     def send_torch(self, torch_tensor: torch.Tensor, name: str):
         tag = self.get_dist_tag(name)
         send_tensor = torch_tensor.cpu()
-        time.sleep(DELAY)
+        time.sleep(Config.delay)
         self.all_wait[tag] = dist.isend(tensor=send_tensor, dst=self.dst, tag=tag)
 
         self.traffic_record.send_byte(get_num_byte(send_tensor))
@@ -104,7 +103,6 @@ class CommBase(object):
     def recv_torch(self, torch_tensor: torch.Tensor, name: str):
         tag = self.get_dist_tag(name)
         self.all_tensors[tag] = torch_tensor
-        time.sleep(DELAY)
         self.all_wait[tag] = dist.irecv(tensor=self.all_tensors[tag], src=self.dst, tag=tag)
 
     def wait(self, name: str):

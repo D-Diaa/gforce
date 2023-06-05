@@ -17,3 +17,4 @@ class Config(object):
     use_cuda = True
     device_name = "cuda:0" if use_cuda else "cpu"
     device = torch.device(device_name)
+    delay = 0.0
