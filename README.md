@@ -1,4 +1,9 @@
 # GForce
+****
+## DISCLAIMER
+
+**This is a modified version of the original repo. Changes include: Simulated Delay, Average Pools for VGGs and Results Extraction from logfiles**
+****
 **GForce: GPU-Friendly Oblivious and Rapid Neural Network Inference**
 
 A crypto-assisted framework leveraging GPU, additive secret share, and homomorphic encryption to protect the privacy of models and queries in inference.
@@ -9,15 +14,7 @@ The details of this project are presented in the following paper:
 **[Lucien K. L. Ng](https://lucieno.github.io/), [Sherman S. M. Chow](https://staff.ie.cuhk.edu.hk/~smchow/)** <br>
 Usenix Security Symposium 2021
 
-
-## Suggested Setup
-We tested our code on 2 Google Cloud VMs located in the same region. They were running with
-- Ubuntu 18.04 LTS
-- Nvidia V100 GPU
-- 8 Virtual Intel Xeon (Skylake) CPUs at 2GHz
-- 52 GB RAM
-
-Note that GPU is necessary. Nvidia P100 GPU is also well suited with our code.
+Note that GPU is necessary
 
 ## How to Install
 1. Install [Anaconda](https://www.anaconda.com/), a Python package manager.
@@ -30,7 +27,7 @@ Note that GPU is necessary. Nvidia P100 GPU is also well suited with our code.
 
        conda activate gforce
   
-3. Install [SEAL-Python](https://github.com/Lucieno/SEAL-Python/tree/master) by following the instructions in its README.md. 
+3. Install [SEAL-Python](https://github.com/D-Diaa/SEAL-Python) by following the instructions in its README.md. 
 
     Remember to activate the virtual environment `gforce` (by `conda activate gforce`) before installation.
 
@@ -56,14 +53,14 @@ Note that GPU is necessary. Nvidia P100 GPU is also well suited with our code.
 - If you want to try running other neural networks (e.g., [MiniONN](https://eprint.iacr.org/2017/452)'s NN with MaxPool/AvgPool) or testing on CIFAR-100, 
     you may add the argument `--test $TestName`.
     `$TestName` can be: 
-    - `vgg_cifar10`
-    - `vgg_cifar100`
+    - `vgg16_cifar10`
+    - `vgg16_cifar100`
     - `minionn_avgpool` (for CIFAR-10)
     - `minionn_maxpool` (for CIFAR-10)
 
     For example, the command of running VGG-16 on CIFAR-100 on a single machine:
 
-      python src/secure_vgg.py --test vgg_cifar100
+      python src/secure_vgg.py --test vgg16_cifar100
 
     You may combine with the arguments `--ip="$IpClient" -s 0` and `--ip="$IpServer" -s 1` to test the cross-machine performance.
 

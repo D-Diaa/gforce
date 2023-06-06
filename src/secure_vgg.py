@@ -488,6 +488,7 @@ if __name__ == "__main__":
     print("====== New Tests ======")
 
     num_repeat = 20
+    # [LAN, WAN]
     delays = [0.000125, 0.05]
     if test_to_run in ["all", "vgg"]:
         model_name_base = "vgg16_cifar10"
@@ -504,6 +505,6 @@ if __name__ == "__main__":
     elif test_to_run in ["minionn_maxpool"]:
         model_name_base = "minionn_maxpool"
     for delay in delays:
-        print("DELAY IS CHANGING TOOOOOOOOOOOOOOOOOOOO: ->>>>>>>>>>>>>>>>>>>>>>>>", delay)
+        print("DELAY: ", delay)
         for _ in range(num_repeat):
             secure_vgg(input_sid, master_addr, master_port, model_name_base=model_name_base, online_delay=delay)
